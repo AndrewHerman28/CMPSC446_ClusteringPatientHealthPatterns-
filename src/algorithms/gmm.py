@@ -46,5 +46,5 @@ def run_GMM(subsets, X, y):
         })
 
     gmm_df = pd.DataFrame(gmm_results)
-    gmm_df = gmm_df.sort_values(by='Silhouette', ascending=False)
+    gmm_df = gmm_df.sort_values(by=['ARI', 'NMI'], ascending=False)
     return gmm_df

@@ -85,6 +85,6 @@ def apply_PCA(X, y):
           })
 
     pca_df = pd.DataFrame(pca_results)
-    pca_df = pca_df.sort_values(by='Silhouette', ascending=False)
+    pca_df = pca_df.sort_values(by=['ARI', 'NMI'], ascending=False)
     return pca_df
 

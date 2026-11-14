@@ -1,135 +1,138 @@
 import re
+
 import numpy as np
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
-from sklearn.metrics import accuracy_score
-import matplotlib.pyplot as plt
-import seaborn as sns
+
+from src.paths import MASTER_CSV, MODELS_DIR, RAW_CSV, Y_TRUE_CSV
+from src.preprocessing import clean_data
+
+NOISE_LABEL = -1  # DBSCAN marks noise points with -1
+
+# Result files evaluated by this step (missing files are skipped)
+ALGORITHM_FILES = {
+    'KMeans': MODELS_DIR / 'kmeans_results.csv',
+    'Agglomerative': MODELS_DIR / 'agglomerative_results.csv',
+    'GMM': MODELS_DIR / 'gmm_results.csv',
+    'BIRCH': MODELS_DIR / 'birch_results.csv',
+    'DBSCAN': MODELS_DIR / 'dbscan_results.csv',
+}
+
+
+def parse_labels(raw):
+    """Labels are stored as a JSON list string in the CSVs (or already an array)."""
+    if isinstance(raw, str):
+        return np.array(re.findall(r'-?\d+', raw), dtype=int)
+    return np.asarray(raw, dtype=int)
+
+
+def load_ground_truth():
+    """True risk levels, row-aligned with the saved cluster labels."""
+    if Y_TRUE_CSV.exists():
+        return pd.read_csv(Y_TRUE_CSV)['RiskLevel'].values
+    return clean_data(pd.read_csv(RAW_CSV))['RiskLevel'].values
+
+
+def _contingency_without_noise(y_true_arr, labels_arr):
+    contingency = pd.crosstab(y_true_arr, labels_arr)
+    if NOISE_LABEL in contingency.columns:
+        contingency = contingency.drop(columns=NOISE_LABEL)
+    return contingency
 
 
 def compute_hungarian_accuracy(y_true, cluster_labels):
-    """Computes Clustering Accuracy (ACC) using optimal bipartite matching.
+    """Clustering Accuracy (ACC) using strict one-to-one optimal matching.
 
-    Handles rectangular cost matrices (k != number of true classes) via majority-vote fallback.
+    Each cluster is matched to at most one true class (Hungarian algorithm) and
+    each class to at most one cluster. Clusters left over when k > number of
+    classes stay unmatched, and their points count as errors. DBSCAN noise
+    points (label -1) are never matched and also count as errors. This keeps
+    the score comparable across different k (it cannot rise just because k grows).
     """
     y_true_arr = np.asarray(y_true)
     labels_arr = np.asarray(cluster_labels)
 
-    # Build contingency matrix (true classes x cluster IDs)
-    contingency = pd.crosstab(y_true_arr, labels_arr)
+    contingency = _contingency_without_noise(y_true_arr, labels_arr)
+    if contingency.shape[1] == 0:
+        return 0.0, {}
     true_classes = contingency.index.tolist()
     cluster_ids = contingency.columns.tolist()
 
-    cost_matrix = -contingency.values
-    row_ind, col_ind = linear_sum_assignment(cost_matrix)
-
-    # Initial optimal 1-to-1 assignments
+    # Optimal one-to-one assignment (handles rectangular matrices)
+    row_ind, col_ind = linear_sum_assignment(-contingency.values)
     mapping = {cluster_ids[c]: true_classes[r] for r, c in zip(row_ind, col_ind)}
 
-    # Fallback for remaining unmapped clusters if k > num_classes
-    for c_idx, c_id in enumerate(cluster_ids):
-        if c_id not in mapping:
-            best_class_idx = np.argmax(contingency.values[:, c_idx])
-            mapping[c_id] = true_classes[best_class_idx]
-
-    # Map raw cluster IDs to predicted risk strings
-    mapped_preds = np.array([mapping[c] for c in labels_arr])
-    acc = accuracy_score(y_true_arr, mapped_preds)
+    # Unmatched clusters and noise map to None, so they are always counted as wrong
+    mapped_preds = np.array([mapping.get(c) for c in labels_arr], dtype=object)
+    acc = float(np.mean(mapped_preds == y_true_arr))
 
     return round(acc, 4), mapping
 
 
+def compute_purity(y_true, cluster_labels):
+    """Cluster purity: each cluster is credited with its most common class.
+
+    Unlike accuracy, purity can only go up as k grows (k = n gives 1.0), so it
+    should NOT be used to compare different values of k. Noise points count as
+    errors.
+    """
+    y_true_arr = np.asarray(y_true)
+    contingency = _contingency_without_noise(y_true_arr, np.asarray(cluster_labels))
+    if contingency.shape[1] == 0:
+        return 0.0
+    return round(float(contingency.max(axis=0).sum() / len(y_true_arr)), 4)
+
+
 def add_accuracy_to_results(df_results, y_true):
-    """Iterates through each saved run in a results dataframe and computes Clustering Accuracy."""
+    """Computes Accuracy and Purity for every saved run in a results dataframe."""
     df = df_results.copy()
     acc_scores = []
+    purity_scores = []
 
     for _, row in df.iterrows():
-        raw = row['Labels']
-        if isinstance(raw, str):
-            labels = np.array(re.findall(r'-?\d+', raw), dtype=int)
-        else:
-            labels = np.asarray(raw, dtype=int)
+        labels = parse_labels(row['Labels'])
+        if len(labels) != len(y_true):
+            raise ValueError(
+                f'{len(labels)} labels but {len(y_true)} ground-truth rows. '
+                'Re-run python main.py so all outputs come from the same data.'
+            )
 
         acc, _ = compute_hungarian_accuracy(y_true, labels)
         acc_scores.append(acc)
+        purity_scores.append(compute_purity(y_true, labels))
 
     df['Accuracy'] = acc_scores
+    df['Purity'] = purity_scores
     return df
 
 
-if __name__ == '__main__':
-    # 1. Load ground truth
-    raw_df = pd.read_csv('../../data/raw/Maternal Health Risk Data Set.csv')
-    # Drop duplicates and handle anomalies to match your scaled feature indexing
-    raw_df = raw_df.drop_duplicates().reset_index(drop=True)
-    raw_df = raw_df[raw_df['HeartRate'] > 10].reset_index(drop=True)
-    y_true = raw_df['RiskLevel'].values
+def main():
+    y_true = load_ground_truth()
 
-    # 2. Paths to all result files
-    files = {
-        'KMeans': '../../data/processed/individual_models/kmeans_results.csv',
-        'Agglomerative': '../../data/processed/individual_models/agglomerative_results.csv',
-        'GMM': '../../data/processed/individual_models/gmm_results.csv',
-        'BIRCH': '../../data/processed/individual_models/birch_results.csv',
-    }
+    # Accuracy of always guessing the most common class (reference point)
+    baseline = pd.Series(y_true).value_counts(normalize=True).max()
+    print(f'Majority-class baseline accuracy: {baseline:.4f}')
 
-    evaluated_dfs = {}
-
-    for algo, path in files.items():
-        res_df = pd.read_csv(path)
-        res_df = add_accuracy_to_results(res_df, y_true)
-
-        # Save back updated dataframe with Accuracy column
-        res_df.to_csv(path, index=False)
-        evaluated_dfs[algo] = res_df
+    evaluated_dfs = []
+    for algo, path in ALGORITHM_FILES.items():
+        if not path.exists():
+            print(f'Skipping {algo}: {path.name} not found.')
+            continue
+        res_df = add_accuracy_to_results(pd.read_csv(path), y_true)
+        res_df.to_csv(path, index=False)  # save back with Accuracy/Purity columns
+        evaluated_dfs.append(res_df)
         print(f'Computed Accuracy for {algo} across all {len(res_df)} runs.')
 
-    # 3. Concatenate and display the Top 10 Configurations by Real Accuracy
-    all_evals = pd.concat(evaluated_dfs.values(), ignore_index=True)
+    # Refresh the master table so it includes Accuracy and Purity
+    all_evals = pd.concat(evaluated_dfs, ignore_index=True)
+    all_evals.drop(columns=['BIC'], errors='ignore').to_csv(MASTER_CSV, index=False)
 
     top_acc = all_evals.sort_values(by='Accuracy', ascending=False)[
-        [
-            'Algorithm',
-            'Subset',
-            'k',
-            'Accuracy',
-            'ARI',
-            'NMI',
-            'Silhouette',
-            'Davies_Bouldin',
-        ]
+        ['Algorithm', 'Subset', 'k', 'Accuracy', 'Purity', 'ARI', 'NMI', 'Silhouette', 'Davies_Bouldin']
     ]
-
-    print('\n=== Top 10 Clustering Runs by True Real Accuracy ===')
+    print('\n=== Top 10 Clustering Runs by Accuracy ===')
     print(top_acc.head(10).to_string(index=False))
 
-    plt.figure(figsize=(9, 5))
-    sns.set_theme(style='whitegrid')
 
-    # Filter to full multivariate set for primary comparison
-    multi_evals = all_evals[all_evals['Subset'] == 'full_multivariate']
-
-    sns.lineplot(
-        data=multi_evals,
-        x='k',
-        y='Accuracy',
-        hue='Algorithm',
-        marker='o',
-        linewidth=2.2,
-        palette='tab10',
-    )
-
-    plt.title(
-        'Clustering Accuracy vs. Number of Clusters (Full Multivariate)',
-        fontsize=13,
-        fontweight='bold',
-    )
-    plt.xlabel('Number of Clusters (k)', fontsize=11)
-    plt.ylabel('Clustering Accuracy (ACC)', fontsize=11)
-    plt.xticks([2, 3, 4, 5, 6])
-    plt.ylim(0.3, 0.8)
-    plt.legend(frameon=True, title='Algorithm')
-    plt.tight_layout()
-    # plt.savefig('figures/multivariate_accuracy_comparison.png', dpi=300)
-    plt.show()
+if __name__ == '__main__':
+    main()
