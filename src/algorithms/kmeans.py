@@ -41,5 +41,5 @@ def run_Kmeans(subsets, X, y):
             })
 
     kmeans_df = pd.DataFrame(kmeans_results)
-    kmeans_df = kmeans_df.sort_values(by='Silhouette', ascending=False)
+    kmeans_df = kmeans_df.sort_values(by=['ARI', 'NMI'], ascending=False)
     return kmeans_df

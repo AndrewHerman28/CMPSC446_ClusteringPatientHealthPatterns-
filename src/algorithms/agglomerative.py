@@ -41,5 +41,5 @@ def run_Agglomerative(subsets, X, y):
             })
 
     agg_df = pd.DataFrame(agg_results)
-    agg_df = agg_df.sort_values(by='Silhouette', ascending=False)
+    agg_df = agg_df.sort_values(by=['ARI', 'NMI'], ascending=False)
     return agg_df
