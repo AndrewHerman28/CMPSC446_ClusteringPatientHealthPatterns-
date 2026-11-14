@@ -1,6 +1,6 @@
 # Clustering Patient Health Patterns
 
-Unsupervised clustering of maternal health vital signs, built for CMPSC 446 (Data Mining). The project compares five clustering algorithms across several feature subsets and PCA projections, then checks how well the discovered clusters line up with the dataset's known risk levels.
+Unsupervised clustering of maternal health vital signs. This project compares five clustering algorithms across several feature subsets and PCA projections, then checks how well the discovered clusters line up with the dataset's known risk levels.
 
 ## Overview
 
