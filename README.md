@@ -1,6 +1,6 @@
 # Clustering Patient Health Patterns
 
-Unsupervised clustering of maternal health vital signs. This project compares five clustering algorithms across several feature subsets and PCA projections, then checks how well the discovered clusters line up with the dataset's known risk levels.
+Unsupervised clustering of maternal health vital signs, built for CMPSC 446 (Data Mining). The project compares five clustering algorithms across several feature subsets and PCA projections, then checks how well the discovered clusters line up with the dataset's known risk levels.
 
 ## Overview
 
@@ -12,7 +12,8 @@ The risk labels are never used to build the clusters. They are only used afterwa
 - clusters it with KMeans, Agglomerative, GMM, BIRCH and DBSCAN,
 - repeats the analysis on single vital signs, related groups of vital signs and the full feature set,
 - repeats it again in 2D and 3D PCA space,
-- scores every run with internal and external metrics and saves tables and figures.
+- scores every run with internal and external metrics and saves tables and figures,
+- explains the best clusterings with a surrogate model and SHAP, to show which features define each cluster.
 
 ## Dataset
 
@@ -72,6 +73,21 @@ The same algorithms are also run on 2D and 3D PCA projections of the full standa
 
 Results are ranked by ARI, then NMI.
 
+### Explainability (`src/explainability/explain_clusters.py`)
+
+Clustering algorithms don't say *why* patients ended up together, so the top three full-multivariate runs (by ARI, then NMI; DBSCAN excluded) are explained with a **surrogate model**: a Random Forest trained to predict each patient's cluster from the original, unscaled features.
+
+| Output | What it shows |
+|---|---|
+| Cluster profiles | Feature averages per cluster in real units, and the risk-level mix of each cluster |
+| SHAP importance and beeswarm | Which features push a patient into each cluster, and in which direction |
+| Typical-patient plots | A local explanation for the patient closest to each cluster's center |
+| Decision-tree rules | A depth-3 tree that reads as simple if/else rules |
+| Clusters vs risk level | The same analysis on the true `RiskLevel`, to see whether clusters and risk depend on the same features |
+| `surrogate_fidelity.csv` | Cross-validated accuracy of every surrogate |
+
+The surrogate is only a trustworthy explanation if it predicts the clusters well, so its cross-validated accuracy is saved next to the results. If `shap` is not installed, the step falls back to permutation importance and skips the SHAP-only plots. SHAP explains the clustering, not the patients' health. Because `SystolicBP` and `DiastolicBP` are strongly correlated, SHAP may split credit between them.
+
 ## Getting started
 
 Requires Python 3 (developed with 3.13).
@@ -83,7 +99,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-`main.py` runs the whole pipeline in order and takes about 20 seconds:
+`main.py` runs the whole pipeline in order and takes under a minute:
 
 1. Check the raw data
 2. Preprocess, cluster and run PCA
@@ -91,12 +107,13 @@ python main.py
 4. Save per-algorithm cluster figures
 5. Save PCA cluster figures (2D and 3D)
 6. Save the accuracy comparison figure
+7. Explain the best clusterings (surrogate model and SHAP)
 
 Options:
 
 ```bash
 python main.py --show           # also display each figure in a window
-python main.py --skip-figures   # stop after the CSV results and accuracy report
+python main.py --skip-figures   # stop after the CSV results and accuracy report (no figures, no explainability)
 ```
 
 Run it from any location. All paths are resolved relative to the project folder.
@@ -115,7 +132,9 @@ data/
     pca_base_coords.csv      # PC1-PC3 coordinates used for plots
     pca_explained_variance.csv
     y_true.csv               # true risk levels, row-aligned with every label list
+    explainability/          # cluster profiles, importances, tree rules, fidelity scores
 figures/                     # generated figures
+  explainability/            # one folder per explained run (SHAP, profiles, tree)
 src/
   paths.py                   # all file locations
   preprocessing.py           # cleaning, scaling, PCA coordinates
@@ -124,6 +143,8 @@ src/
   algorithms/                # kmeans, agglomerative, gmm, birch, dbscan
   evaluation/
     clustering_accuracy.py   # accuracy, purity, majority baseline
+  explainability/
+    explain_clusters.py      # surrogate model, SHAP, cluster profiles, rules
   visualization/             # cluster, PCA (2D/3D) and accuracy figures
 ```
 
@@ -135,6 +156,8 @@ src/
 - **`figures/multivariate_accuracy_comparison.png`** compares accuracy across algorithms and k, with the majority-class baseline.
 
 Cluster labels are stored as JSON lists, in the same row order as `y_true.csv`.
+
+- **`figures/explainability/<algorithm>_k<k>/`** has the explanation figures for each of the top three runs. Tables are in `data/processed/explainability/`.
 
 ![Accuracy comparison](figures/multivariate_accuracy_comparison.png)
 
