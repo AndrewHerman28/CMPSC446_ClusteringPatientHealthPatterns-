@@ -8,9 +8,11 @@ from src.evaluation.clustering_accuracy import parse_labels
 from src.paths import FIGURES, PCA_BASE_CSV, PCA_RESULTS_CSV, PCA_VARIANCE_CSV
 from src.visualization.plot_utils import (
     _panel_title, _set_window_title, axis_label, build_palette, plot_cluster_panels,
+    select_one_per_k,
 )
 
 DEFAULT_OUTPUT_DIR = FIGURES / 'pca_clusters'
+K_RANGE = (2, 6)
 
 
 def _figure_path(dimensionality, target_algo, output_base_dir):
@@ -27,10 +29,24 @@ def _figure_path(dimensionality, target_algo, output_base_dir):
 
 
 def _select(pca_results_df, dimensionality, target_algo):
-    return pca_results_df[
+    rows = pca_results_df[
         (pca_results_df['Dimensionality'] == dimensionality)
         & (pca_results_df['Algorithm'] == target_algo)
-        ].sort_values(by='k').reset_index(drop=True)
+        ]
+    if target_algo.endswith('DBSCAN') and not rows.empty:
+        # DBSCAN has several settings per cluster count: keep k in range and
+        # show the best run (by ARI) for each k.
+        rows = rows[rows['k'].between(*K_RANGE)]
+        if not rows.empty:
+            rows = select_one_per_k(rows, metric='ARI')
+    return rows.sort_values(by='k').reset_index(drop=True)
+
+
+def _suptitle(dimensionality, target_algo):
+    title = f'Clusters on {dimensionality} using {target_algo} (k in [2, 6])'
+    if target_algo.endswith('DBSCAN'):
+        title += '\nbest eps / min_samples per k'
+    return title
 
 
 def plot_pca_clusters_from_results(
@@ -53,7 +69,7 @@ def plot_pca_clusters_from_results(
     plot_cluster_panels(
         rows,
         pca_base,
-        suptitle=f'Clusters on {dimensionality} using {target_algo} (k in [2, 6])',
+        suptitle=_suptitle(dimensionality, target_algo),
         window_title=f'PCA Visualizer: {dimensionality} - {target_algo}',
         save_path=_figure_path(dimensionality, target_algo, output_base_dir) if save_fig else None,
         draw_boundaries=draw_boundaries,
@@ -123,7 +139,7 @@ def plot_pca_clusters_3d(
         ax.set_title(_panel_title(row), fontsize=11, fontweight='bold')
 
     fig.suptitle(
-        f'Clusters on {dimensionality} using {target_algo} (k in [2, 6])',
+        _suptitle(dimensionality, target_algo),
         fontsize=14,
         fontweight='bold',
     )

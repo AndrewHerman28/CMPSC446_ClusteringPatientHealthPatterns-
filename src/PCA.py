@@ -11,6 +11,12 @@ from sklearn.metrics import (
 )
 from sklearn.mixture import GaussianMixture
 
+from src.algorithms.dbscan import run_dbscan_grid
+
+# DBSCAN settings for the 2D/3D PCA projections. Distances shrink in a low-
+# dimensional projection, so a finer grid at small eps values is used here.
+PCA_DBSCAN_EPS_VALUES = [0.3, 0.4, 0.5, 0.75, 1.0]
+
 
 def apply_PCA(X, y):
     # 1. Fit PCA across all 6 scaled features
@@ -84,7 +90,16 @@ def apply_PCA(X, y):
               'Labels': labels,
           })
 
+      # Model E: DBSCAN. It finds its own number of clusters, so it runs once per
+      # projection over an eps / min_samples grid instead of once per k.
+      for run in run_dbscan_grid(X_pca, y, eps_values=PCA_DBSCAN_EPS_VALUES):
+          pca_results.append({
+              'Dimensionality': dim_name,
+              'Num_Components': n_dims,
+              'Algorithm': 'PCA_DBSCAN',
+              **run,
+          })
+
     pca_df = pd.DataFrame(pca_results)
     pca_df = pca_df.sort_values(by=['ARI', 'NMI'], ascending=False)
     return pca_df
-
