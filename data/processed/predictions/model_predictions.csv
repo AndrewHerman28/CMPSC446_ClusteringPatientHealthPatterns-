@@ -1,0 +1,7 @@
+Patient,Model,Config,Cluster,Predicted_Risk,Confidence,P_low,P_mid,P_high,Top_Reasons
+1,KMeans,k=4,0,high risk,0.807,0.018,0.175,0.807,"BS, SystolicBP, DiastolicBP"
+1,Agglomerative,"k=4, Ward",2,high risk,0.846,0.0,0.154,0.846,"BS, SystolicBP, BodyTemp"
+1,GMM,k=4,0,high risk,0.814,0.029,0.157,0.814,"BS, BodyTemp, SystolicBP"
+1,BIRCH,k=3,1,high risk,0.867,0.0,0.133,0.867,"BS, SystolicBP, BodyTemp"
+1,DBSCAN,"eps=1.5, min_samples=10, k=3",,outlier (no prediction),,,,,
+1,RandomForest (supervised reference),300 trees,,high risk,0.989,0.003,0.007,0.989,"BS, SystolicBP, Age"

@@ -5,7 +5,8 @@
     python main.py --skip-figures   # stop after the CSV results and accuracy report
 
 Steps: check raw data -> preprocessing/clustering/PCA -> accuracy report ->
-cluster figures -> PCA figures (2D / 3D) -> accuracy comparison figure.
+cluster figures -> PCA figures (2D / 3D) -> accuracy comparison figure ->
+explainability (surrogate model + SHAP).
 The accuracy report must run after the clustering step, because that step
 rewrites the result CSVs without Accuracy/Purity.
 """
@@ -19,7 +20,8 @@ def parse_args():
     parser.add_argument('--show', action='store_true',
                         help='display figures interactively (default: save only)')
     parser.add_argument('--skip-figures', action='store_true',
-                        help='stop after the CSV results and accuracy report')
+                        help='stop after the CSV results and accuracy report '
+                             '(skips figures and the explainability step)')
     return parser.parse_args()
 
 
@@ -40,9 +42,9 @@ def main():
         matplotlib.use('Agg')
         warnings.filterwarnings('ignore', message='.*non-interactive.*')
 
-    from src.paths import FIGURES, MODELS_DIR, RAW_CSV
+    from src.paths import EXPLAIN_DIR, EXPLAIN_FIGURES, FIGURES, MODELS_DIR, RAW_CSV
 
-    total = 3 if args.skip_figures else 6
+    total = 3 if args.skip_figures else 7
     pipeline_start = time.time()
 
     def check_raw_data():
@@ -74,6 +76,10 @@ def main():
         from src.visualization.show_accuracy import plot_accuracy
         plot_accuracy(show=args.show)
 
+    def explainability():
+        from src.explainability.explain_clusters import main as explain
+        explain(show=args.show)
+
     run_step(1, total, 'Checking raw data', check_raw_data)
     run_step(2, total, 'Preprocessing, clustering, PCA, accuracy', compute_results)
     run_step(3, total, 'Accuracy report', accuracy_report)
@@ -82,7 +88,10 @@ def main():
         run_step(4, total, 'Cluster figures (per algorithm)', cluster_figures)
         run_step(5, total, 'PCA cluster figures (2D / 3D)', pca_figures)
         run_step(6, total, 'Accuracy comparison figure', accuracy_figure)
+        run_step(7, total, 'Explainability (surrogate model + SHAP)', explainability)
         print(f'\nFigures saved under: {FIGURES}')
+        print(f'Explainability figures: {EXPLAIN_FIGURES}')
+        print(f'Explainability tables:  {EXPLAIN_DIR}')
 
     print(f'\nPipeline finished in {time.time() - pipeline_start:.1f}s')
 

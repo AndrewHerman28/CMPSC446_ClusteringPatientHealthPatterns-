@@ -1,0 +1,31 @@
+Patient,Model,Feature,Value,Contribution,Method
+1,KMeans,Age,35.0,0.0013,SHAP
+1,KMeans,SystolicBP,140.0,0.1163,SHAP
+1,KMeans,DiastolicBP,90.0,0.0835,SHAP
+1,KMeans,BS,13.0,0.4609,SHAP
+1,KMeans,BodyTemp,98.0,0.0637,SHAP
+1,KMeans,HeartRate,80.0,0.0017,SHAP
+1,Agglomerative,Age,35.0,-0.0014,SHAP
+1,Agglomerative,SystolicBP,140.0,0.1027,SHAP
+1,Agglomerative,DiastolicBP,90.0,0.0415,SHAP
+1,Agglomerative,BS,13.0,0.4795,SHAP
+1,Agglomerative,BodyTemp,98.0,0.0938,SHAP
+1,Agglomerative,HeartRate,80.0,0.0093,SHAP
+1,GMM,Age,35.0,0.0349,SHAP
+1,GMM,SystolicBP,140.0,0.0596,SHAP
+1,GMM,DiastolicBP,90.0,0.046,SHAP
+1,GMM,BS,13.0,0.5101,SHAP
+1,GMM,BodyTemp,98.0,0.0661,SHAP
+1,GMM,HeartRate,80.0,0.0035,SHAP
+1,BIRCH,Age,35.0,-0.0116,SHAP
+1,BIRCH,SystolicBP,140.0,0.1836,SHAP
+1,BIRCH,DiastolicBP,90.0,0.0098,SHAP
+1,BIRCH,BS,13.0,0.3485,SHAP
+1,BIRCH,BodyTemp,98.0,0.0478,SHAP
+1,BIRCH,HeartRate,80.0,-0.0029,SHAP
+1,RandomForest (supervised reference),Age,35.0,0.0637,SHAP
+1,RandomForest (supervised reference),SystolicBP,140.0,0.2759,SHAP
+1,RandomForest (supervised reference),DiastolicBP,90.0,0.0024,SHAP
+1,RandomForest (supervised reference),BS,13.0,0.2942,SHAP
+1,RandomForest (supervised reference),BodyTemp,98.0,-0.0101,SHAP
+1,RandomForest (supervised reference),HeartRate,80.0,0.0286,SHAP

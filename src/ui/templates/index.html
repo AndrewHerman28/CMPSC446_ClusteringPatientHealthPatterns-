@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Patient Risk Explorer</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #1d2330; --muted: #5d6677; --line: #dfe3ea;
+    --accent: #2f5fb3; --accent-ink: #ffffff; --soft: #eef2f8;
+    --low: #4c9f70; --mid: #e0a030; --high: #c8553d; --neutral: #bdbdbd;
+    --warn-bg: #fff4e0; --warn-ink: #7a4b00; --err-bg: #fdeceb; --err-ink: #8a2a20;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171d; --card: #1c2029; --ink: #e8ebf1; --muted: #98a2b3; --line: #2c3340;
+      --accent: #6c97e6; --accent-ink: #10131a; --soft: #232937;
+      --warn-bg: #3a2c12; --warn-ink: #f2c777; --err-bg: #3b1d1a; --err-ink: #f0a79f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  header h1 { margin: 0; font-size: 22px; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  .tabs { display: flex; gap: 4px; margin: 20px 0 16px; border-bottom: 1px solid var(--line); }
+  .tab { appearance: none; border: 0; background: none; color: var(--muted); padding: 10px 16px;
+         font: inherit; font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  .tab:disabled { opacity: .45; cursor: not-allowed; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  label { display: block; font-weight: 600; margin-bottom: 4px; }
+  .field .row { display: flex; align-items: center; gap: 8px; }
+  input[type=number] { width: 100%; padding: 9px 10px; font: inherit; color: var(--ink); background: var(--bg);
+                       border: 1px solid var(--line); border-radius: 8px; }
+  input[type=number]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .unit { color: var(--muted); white-space: nowrap; min-width: 4.5em; }
+  .hint { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; align-items: center; }
+  button.btn { font: inherit; font-weight: 600; padding: 9px 16px; border-radius: 8px; cursor: pointer;
+               border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.btn:disabled { opacity: .6; cursor: wait; }
+  .examples { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13px; }
+  .examples button { font-size: 13px; padding: 6px 10px; }
+  .msg { margin-top: 14px; padding: 10px 12px; border-radius: 8px; display: none; }
+  .msg.err { background: var(--err-bg); color: var(--err-ink); display: block; }
+  .note { background: var(--soft); border-radius: 8px; padding: 10px 12px; color: var(--muted); font-size: 13.5px; }
+  .warnbox { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 10px 12px; margin-top: 12px; }
+  .warnbox ul { margin: 4px 0 0 18px; padding: 0; }
+
+  .hero { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; color: #fff; font-weight: 700; font-size: 13px; white-space: nowrap; }
+  .badge.low { background: var(--low); } .badge.mid { background: var(--mid); color: #2a1d00; } .badge.high { background: var(--high); }
+  .badge.none { background: var(--neutral); color: #333; }
+  .big { font-size: 30px; font-weight: 800; line-height: 1.1; }
+  .big.low { color: var(--low); } .big.mid { color: var(--mid); } .big.high { color: var(--high); }
+  .sub { color: var(--muted); }
+  .stat { min-width: 150px; }
+  .stat .k { color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; }
+  .stat .v { font-size: 18px; font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: .03em; }
+  tr:last-child td { border-bottom: 0; }
+  .tablewrap { overflow-x: auto; }
+  .stack { display: flex; height: 14px; border-radius: 4px; overflow: hidden; min-width: 120px; background: var(--soft); }
+  .stack span.low { background: var(--low); } .stack span.mid { background: var(--mid); } .stack span.high { background: var(--high); }
+  .legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
+  .refrow td { background: var(--soft); }
+  img.chart { width: 100%; height: auto; border-radius: 8px; background: #fff; }
+  .models { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+  .mcard { border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .mcard h3 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .mcard .meta { color: var(--muted); font-size: 12.5px; margin: 4px 0 8px; }
+  .eff { display: grid; grid-template-columns: minmax(0, 1fr) 46px 58px minmax(70px, 90px); gap: 5px 8px; align-items: center; font-size: 13px; }
+  .eff > div { min-width: 0; overflow-wrap: anywhere; }
+  .eff .h { color: var(--muted); font-size: 11.5px; text-transform: uppercase; }
+  .effbar { position: relative; height: 10px; background: var(--soft); border-radius: 3px; overflow: hidden; }
+  .effbar i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+  .effbar b { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--muted); z-index: 1; }
+  ul.notes { margin: 0; padding-left: 20px; color: var(--muted); }
+  ul.notes li { margin-bottom: 4px; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .spinner { width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%;
+             animation: spin .8s linear infinite; display: none; }
+  .busy .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  [hidden] { display: none !important; }
+  @media print {
+    body { background: #fff; color: #000; } .tabs, .toolbar, header p, #panel-input { display: none !important; }
+    #panel-report { display: block !important; } .card { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Patient Risk Explorer</h1>
+    <p>Enter a patient, run every clustering model and read what each one decides and why.</p>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" id="tab-input" role="tab" aria-selected="true" aria-controls="panel-input">Patient input</button>
+    <button class="tab" id="tab-report" role="tab" aria-selected="false" aria-controls="panel-report" disabled>Report</button>
+  </div>
+
+  <!-- INPUT -->
+  <section id="panel-input" role="tabpanel" aria-labelledby="tab-input">
+    <form id="form" class="card" novalidate>
+      <h2>Patient vitals</h2>
+      <div class="grid" id="fields"></div>
+      <div class="actions" id="actions">
+        <button class="btn primary" type="submit" id="submit">Run all models</button>
+        <span class="spinner" aria-hidden="true"></span>
+        <button class="btn" type="button" id="reset">Clear</button>
+        <div class="examples"><span>Try:</span><span id="examples"></span></div>
+      </div>
+      <div id="formmsg" class="msg" role="alert"></div>
+    </form>
+    <div class="note">
+      This is a course project that explores clustering models. It is not a medical device and must not be used
+      to make care decisions. The models were trained on <span id="ntrain">about 450</span> patients.
+    </div>
+  </section>
+
+  <!-- REPORT -->
+  <section id="panel-report" role="tabpanel" aria-labelledby="tab-report" hidden>
+    <div class="toolbar">
+      <button class="btn" id="back">&larr; Edit patient</button>
+      <button class="btn" id="csv">Download CSV</button>
+      <button class="btn" id="print">Print / save as PDF</button>
+    </div>
+
+    <div class="card" id="hero"></div>
+    <div class="card"><h2>Patient inputs</h2><div class="tablewrap" id="inputs"></div></div>
+    <div class="card"><h2>Model results</h2>
+      <div class="legend"><span><i class="dot" style="background:var(--low)"></i>low risk</span>
+        <span><i class="dot" style="background:var(--mid)"></i>mid risk</span>
+        <span><i class="dot" style="background:var(--high)"></i>high risk</span></div>
+      <div class="tablewrap" id="results"></div></div>
+    <div class="card"><h2>Summary chart</h2><img id="img-summary" class="chart" alt="Predicted risk by model"></div>
+    <div class="card"><h2>Why each model decided this</h2>
+      <p class="sub" style="margin-top:0">Each model's explanation shows how much every feature pushed this patient toward the cluster
+        (or risk level) the model chose. Bars to the right support that decision; gray bars to the left argue against it.</p>
+      <div class="models" id="mcards"></div></div>
+    <div class="card"><h2>Explanation chart</h2><img id="img-explain" class="chart" alt="Feature explanations by model"></div>
+    <div class="card"><h2>How to read this report</h2>
+      <ul class="notes">
+        <li><b>Clusters are not risk levels.</b> The clustering models never saw the risk labels. Each patient is placed in a cluster, and the
+          risk level comes from the risk mix of the training patients in that cluster.</li>
+        <li><b>Confidence is not a calibrated probability.</b> For KMeans, Agglomerative, BIRCH and DBSCAN it is how risk-pure the patient's cluster is.
+          GMM also folds in how certain the cluster membership is.</li>
+        <li><b>Agreement matters more than any single number.</b> When models disagree, the consensus confidence drops and the case is borderline.</li>
+        <li><b>DBSCAN</b> may declare a patient an outlier (no dense cluster nearby) and then gives no prediction. It is left out of the consensus.</li>
+        <li>The <b>supervised Random Forest</b> is a reference trained on the true labels, and the only model that outputs real class probabilities.</li>
+        <li>Explanations describe how the <i>models</i> behave, not the patient's health or the cause of any condition.</li>
+      </ul></div>
+  </section>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const pct = (x) => Math.round(x * 100) + '%';
+const cls = (risk) => risk.split(' ')[0];
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+let META = null, LAST = null;
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function show(tab) {
+  const input = tab === 'input';
+  $('#panel-input').hidden = !input; $('#panel-report').hidden = input;
+  $('#tab-input').setAttribute('aria-selected', input); $('#tab-report').setAttribute('aria-selected', !input);
+  window.scrollTo({top: 0});
+}
+$('#tab-input').onclick = () => show('input');
+$('#tab-report').onclick = () => show('report');
+$('#back').onclick = () => show('input');
+$('#print').onclick = () => window.print();
+
+async function init() {
+  META = await (await fetch('/api/meta')).json();
+  $('#ntrain').textContent = META.n_train;
+  $('#fields').innerHTML = META.fields.map(f => `
+    <div class="field">
+      <label for="f-${f.key}">${esc(f.label)}</label>
+      <div class="row">
+        <input type="number" id="f-${f.key}" name="${f.key}" step="${f.step}" min="${f.min}" max="${f.max}" inputmode="decimal" required>
+        <span class="unit">${esc(f.unit)}</span>
+      </div>
+      <div class="hint">${esc(f.hint)}. Training data: ${f.train_min}–${f.train_max} (avg ${f.train_mean}).</div>
+    </div>`).join('');
+  $('#examples').innerHTML = Object.keys(META.examples).map(n =>
+    `<button class="btn" type="button" data-ex="${esc(n)}">${esc(n)}</button>`).join(' ');
+  document.querySelectorAll('[data-ex]').forEach(b => b.onclick = () => {
+    const ex = META.examples[b.dataset.ex];
+    META.fields.forEach(f => $('#f-' + f.key).value = ex[f.key]);
+    $('#formmsg').className = 'msg';
+  });
+}
+
+$('#reset').onclick = () => { $('#form').reset(); $('#formmsg').className = 'msg'; };
+
+$('#form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = $('#formmsg'); msg.className = 'msg';
+  const body = {};
+  for (const f of META.fields) {
+    const v = $('#f-' + f.key).value;
+    if (v === '') { msg.textContent = `${f.label}: please enter a value.`; msg.className = 'msg err'; return; }
+    body[f.key] = Number(v);
+  }
+  const btn = $('#submit'); btn.disabled = true; $('#actions').classList.add('busy'); btn.textContent = 'Running models…';
+  try {
+    const res = await fetch('/api/predict', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    const data = await res.json();
+    if (!res.ok) { msg.textContent = data.error || 'Something went wrong.'; msg.className = 'msg err'; return; }
+    LAST = data; render(data);
+    $('#tab-report').disabled = false; show('report');
+  } catch (err) {
+    msg.textContent = 'Could not reach the app. Is it still running in the terminal?'; msg.className = 'msg err';
+  } finally {
+    btn.disabled = false; $('#actions').classList.remove('busy'); btn.textContent = 'Run all models';
+  }
+});
+
+function probBar(p) {
+  return `<div class="stack" title="low ${pct(p['low risk'])} / mid ${pct(p['mid risk'])} / high ${pct(p['high risk'])}">` +
+    ['low risk','mid risk','high risk'].map(k => `<span class="${cls(k)}" style="width:${p[k]*100}%"></span>`).join('') + `</div>`;
+}
+
+function render(d) {
+  const c = d.consensus, k = cls(c.risk);
+  const ref = d.models.find(m => m.is_reference);
+  const voteText = Object.entries(c.votes).map(([r, n]) => `${n} ${r}`).join(', ');
+  const top = Math.max(...Object.values(c.votes));
+  const agree = top === c.n_voting ? `All ${c.n_voting} voting models agree` : `${top} of ${c.n_voting} voting models agree`;
+  const outliers = d.models.filter(m => !m.is_reference && !m.predicted).map(m => m.model);
+  let hero = `<div class="hero">
+      <div><div class="stat"><div class="k">Consensus (clustering models)</div></div>
+        <div class="big ${k}">${esc(cap(c.risk))}</div><div class="sub">${pct(c.confidence)} confidence</div></div>
+      <div class="stat"><div class="k">Agreement</div><div class="v">${agree}</div><div class="sub">${esc(voteText)}</div></div>`;
+  if (ref) hero += `<div class="stat"><div class="k">Supervised reference</div>
+      <div class="v"><span class="badge ${cls(ref.risk)}">${esc(cap(ref.risk))}</span> ${pct(ref.confidence)}</div>
+      <div class="sub">Random Forest on true labels</div></div>`;
+  hero += `</div>`;
+  if (top < c.n_voting) hero += `<div class="warnbox"><b>The models disagree.</b> Treat this as a borderline case: the consensus confidence is low.</div>`;
+  if (outliers.length) hero += `<div class="note" style="margin-top:12px">${esc(outliers.join(', '))} found no cluster close to this patient (outlier), so ${outliers.length > 1 ? 'they gave' : 'it gave'} no prediction and ${outliers.length > 1 ? 'are' : 'is'} not part of the consensus.</div>`;
+  if (d.warnings.length) hero += `<div class="warnbox"><b>Outside the training range:</b><ul>${d.warnings.map(w => `<li>${esc(w)}</li>`).join('')}</ul>Predictions for unusual values are less reliable.</div>`;
+  $('#hero').innerHTML = hero;
+
+  $('#inputs').innerHTML = `<table><thead><tr><th>Feature</th><th>Entered</th><th>Training average</th><th>Training range</th><th></th></tr></thead><tbody>` +
+    META.fields.map(f => {
+      const v = d.inputs[f.key], out = v < f.train_min || v > f.train_max;
+      return `<tr><td>${esc(f.label)}</td><td><b>${v}</b> ${esc(f.unit)}</td><td>${f.train_mean}</td><td>${f.train_min}–${f.train_max}</td>
+        <td>${out ? '<span class="badge none">outside range</span>' : ''}</td></tr>`;
+    }).join('') + `</tbody></table>`;
+
+  const rows = d.models.map(m => {
+    if (!m.predicted) return `<tr><td><b>${esc(m.model)}</b><div class="sub">${esc(m.config)}</div></td><td>—</td>
+      <td><span class="badge none">Outlier</span></td><td colspan="3" class="sub">No cluster within eps, so no prediction.</td></tr>`;
+    const tr = m.contributions.slice().sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect)).slice(0, 3).map(x => x.feature).join(', ');
+    return `<tr class="${m.is_reference ? 'refrow' : ''}"><td><b>${esc(m.model)}</b><div class="sub">${esc(m.config)}</div></td>
+      <td>${m.is_reference ? esc(cap(m.target)) : 'Cluster ' + esc(m.target)}${m.cluster_size ? `<div class="sub">${m.cluster_size} patients</div>` : ''}</td>
+      <td><span class="badge ${cls(m.risk)}">${esc(cap(m.risk))}</span></td><td>${pct(m.confidence)}</td>
+      <td style="min-width:140px">${probBar(m.probs)}</td><td class="sub">${esc(tr)}</td></tr>`;
+  }).join('');
+  $('#results').innerHTML = `<table><thead><tr><th>Model</th><th>Cluster</th><th>Predicted risk</th><th>Confidence</th><th>Low / mid / high</th><th>Top reasons</th></tr></thead><tbody>${rows}</tbody></table>`;
+
+  $('#img-summary').src = 'data:image/png;base64,' + d.summary_png;
+  $('#img-explain').src = 'data:image/png;base64,' + d.explain_png;
+
+  $('#mcards').innerHTML = d.models.filter(m => m.predicted).map(m => {
+    const maxAbs = Math.max(...m.contributions.map(x => Math.abs(x.effect))) || 1;
+    const col = `var(--${cls(m.risk)})`;
+    const rowsE = m.contributions.slice().sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect)).map(x => {
+      const w = Math.abs(x.effect) / maxAbs * 50;
+      const bar = x.effect >= 0 ? `left:50%;width:${w}%;background:${col}` : `left:${50 - w}%;width:${w}%;background:var(--neutral)`;
+      return `<div>${esc(x.feature)}</div><div>${+x.value.toFixed(2)}</div><div class="sub">${x.cluster_mean == null ? '' : +x.cluster_mean.toFixed(1)}</div>
+        <div class="effbar"><b></b><i style="${bar}"></i></div>`;
+    }).join('');
+    const label = m.is_reference ? `predicts ${m.target}` : `Cluster ${m.target}`;
+    const mix = Object.entries(m.risk_mix).filter(([, v]) => v > 0).map(([r, v]) => `${pct(v)} ${r.split(' ')[0]}`).join(', ');
+    return `<div class="mcard"><h3><span>${esc(m.model)}</span><span class="badge ${cls(m.risk)}">${esc(cap(m.risk))} ${pct(m.confidence)}</span></h3>
+      <div class="meta">${esc(label)}${m.cluster_size ? ` (${m.cluster_size} training patients)` : ''}${m.is_reference ? '' : `; training risk mix: ${esc(mix)}`}.
+        Method: ${esc(m.method)}.</div>
+      <div class="eff"><div class="h">Feature</div><div class="h">Value</div><div class="h">${m.is_reference ? 'Class avg' : 'Cluster avg'}</div><div class="h">Effect</div>${rowsE}</div></div>`;
+  }).join('');
+}
+
+$('#csv').onclick = () => {
+  if (!LAST) return;
+  const head = ['Model','Config','Cluster','Predicted_Risk','Confidence','P_low','P_mid','P_high'];
+  const lines = [head.join(',')];
+  for (const m of LAST.models) {
+    lines.push([m.model, m.config, m.predicted ? m.target : '', m.predicted ? m.risk : 'outlier (no prediction)',
+      m.predicted ? m.confidence.toFixed(3) : '', ...['low risk','mid risk','high risk'].map(k => m.predicted ? m.probs[k].toFixed(3) : '')]
+      .map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+  }
+  const c = LAST.consensus;
+  lines.push(['Consensus (clustering models)', '', '', c.risk, c.confidence.toFixed(3), ...['low risk','mid risk','high risk'].map(k => c.probs[k].toFixed(3))]
+    .map(v => `"${v}"`).join(','));
+  const blob = new Blob([lines.join('\n')], {type: 'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'patient_report.csv'; a.click();
+};
+
+init();
+</script>
+</body>
+</html>

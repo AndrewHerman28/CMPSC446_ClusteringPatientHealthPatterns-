@@ -1,0 +1,22 @@
+Depth-3 decision tree approximating the clusters
+Cross-validated accuracy: 0.978
+
+|--- BodyTemp <= 98.20
+|   |--- BS <= 9.50
+|   |   |--- class: 3
+|   |--- BS >  9.50
+|   |   |--- HeartRate <= 63.00
+|   |   |   |--- class: 0
+|   |   |--- HeartRate >  63.00
+|   |   |   |--- class: 0
+|--- BodyTemp >  98.20
+|   |--- SystolicBP <= 105.00
+|   |   |--- Age <= 28.50
+|   |   |   |--- class: 1
+|   |   |--- Age >  28.50
+|   |   |   |--- class: 2
+|   |--- SystolicBP >  105.00
+|   |   |--- BS <= 8.45
+|   |   |   |--- class: 2
+|   |   |--- BS >  8.45
+|   |   |   |--- class: 0

@@ -13,6 +13,11 @@ PCA_VARIANCE_CSV = PROCESSED / "pca_explained_variance.csv"
 FIGURES_ROOT = ROOT / "figures"
 FIGURES = FIGURES_ROOT / "clusters"
 ACCURACY_FIG = FIGURES_ROOT / "multivariate_accuracy_comparison.png"
+EXPLAIN_DIR = PROCESSED / "explainability"
+EXPLAIN_FIGURES = FIGURES_ROOT / "explainability"
+PREDICT_DIR = PROCESSED / "predictions"
+PREDICT_FIGURES = FIGURES_ROOT / "predictions"
 
-for _d in (PROCESSED, MODELS_DIR, FIGURES):
+for _d in (PROCESSED, MODELS_DIR, FIGURES, EXPLAIN_DIR, EXPLAIN_FIGURES,
+           PREDICT_DIR, PREDICT_FIGURES):
     _d.mkdir(parents=True, exist_ok=True)

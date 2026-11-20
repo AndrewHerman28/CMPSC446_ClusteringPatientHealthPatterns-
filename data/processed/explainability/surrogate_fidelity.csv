@@ -1,0 +1,4 @@
+Algorithm,k,ARI,Method,Surrogate_CV_Accuracy,Surrogate_CV_BalancedAccuracy,RuleTree_CV_Accuracy,Top_Features,RiskModel_CV_Accuracy,Majority_Baseline
+BIRCH,3,0.297,shap,0.9889,0.9857,0.969,"BodyTemp, BS, SystolicBP",0.6408,0.5166
+GMM,4,0.2873,shap,0.9845,0.9679,0.9778,"BodyTemp, BS, SystolicBP",0.6408,0.5166
+GMM,3,0.275,shap,0.9823,0.9652,0.9579,"BodyTemp, BS, Age",0.6408,0.5166

@@ -1,0 +1,4 @@
+Cluster,Size,Age,SystolicBP,DiastolicBP,BS,BodyTemp,HeartRate,Share_low_risk,Share_mid_risk,Share_high_risk
+0,310,28.4,108.93,74.62,7.33,98.03,73.18,0.687,0.229,0.084
+1,60,41.07,130.08,88.0,14.47,98.34,76.47,0.0,0.133,0.867
+2,81,23.6,102.2,69.17,7.72,101.49,75.86,0.247,0.333,0.42

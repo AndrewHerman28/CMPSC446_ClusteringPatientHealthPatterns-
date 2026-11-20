@@ -1,0 +1,2 @@
+Patient,Age,SystolicBP,DiastolicBP,BS,BodyTemp,HeartRate,Consensus_Risk,Consensus_Confidence,Votes,RandomForest (supervised reference)_Risk,RandomForest (supervised reference)_Confidence,Warnings
+1,35.0,140.0,90.0,13.0,98.0,80.0,high risk,0.834,high risk: 4,high risk,0.989,
