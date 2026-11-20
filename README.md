@@ -1,6 +1,6 @@
 # Clustering Patient Health Patterns
 
-Unsupervised clustering of maternal health vital signs, built for CMPSC 446 (Data Mining). The project compares five clustering algorithms across several feature subsets and PCA projections, then checks how well the discovered clusters line up with the dataset's known risk levels.
+Unsupervised clustering of maternal health vital signs. The project compares five clustering algorithms across several feature subsets and PCA projections, then checks how well the discovered clusters line up with the dataset's known risk levels.
 
 ## Overview
 
@@ -88,6 +88,35 @@ Clustering algorithms don't say *why* patients ended up together, so the top thr
 
 The surrogate is only a trustworthy explanation if it predicts the clusters well, so its cross-validated accuracy is saved next to the results. If `shap` is not installed, the step falls back to permutation importance and skips the SHAP-only plots. SHAP explains the clustering, not the patients' health. Because `SystolicBP` and `DiastolicBP` are strongly correlated, SHAP may split credit between them.
 
+## Predicting a new patient
+
+`predict.py` classifies new patients with every model, shows each model's confidence, explains each decision, and summarizes them side by side. It needs `python main.py` to have been run first.
+
+```bash
+python predict.py --age 35 --systolic 140 --diastolic 90 --bs 13 --temp 98 --hr 80
+python predict.py --csv new_patients.csv    # columns: Age, SystolicBP, DiastolicBP, BS, BodyTemp, HeartRate
+python predict.py                           # prompts for each value
+```
+
+Clustering never saw the risk labels, so a cluster has no risk level of its own. A new patient is placed in a cluster using each algorithm's own rule (KMeans and BIRCH `predict`, GMM membership probabilities, Ward cost for Agglomerative, nearest core point within `eps` for DBSCAN). The cluster is then converted to a risk level using the risk mix of the training patients in that cluster. Each model is its best full-multivariate run by ARI.
+
+- **Confidence** is the largest risk probability. For KMeans, BIRCH, Agglomerative and DBSCAN it is how risk-pure the patient's cluster is, and for GMM it also reflects membership uncertainty. It is not a calibrated probability.
+- **Explanation** for each model comes from a surrogate Random Forest that predicts that model's cluster, explained locally for this patient (SHAP if installed, otherwise replacing one feature at a time with its average).
+- **Consensus** averages the probabilities of the clustering models. A DBSCAN outlier (no cluster within `eps`) gets no prediction and is left out of the consensus.
+- A supervised Random Forest trained on the true risk labels is shown as a reference, since it outputs real class probabilities.
+- Values outside the range seen in training are flagged in the output.
+
+Outputs: `data/processed/predictions/` (`model_predictions.csv`, `patient_summary.csv`, `prediction_explanations.csv`) and `figures/predictions/patient_N_summary.png` and `patient_N_explanations.png`. This is a course project, not a clinical tool.
+
+## Web interface
+
+```bash
+pip install flask          # already in requirements.txt
+python3 app.py             # opens http://127.0.0.1:5050
+```
+
+Enter a patient's six values and press **Run all models**. The **Report** tab then shows the consensus risk and how many models agree, the entered values next to the training ranges, a table of every model's prediction, confidence and top reasons, the summary and explanation charts, and a per-model breakdown of the features behind each decision. You can download the table as a CSV or print the report to PDF. Run `python3 main.py` once first so the results exist. The models are fitted at start-up (about 10 seconds) and everything runs locally.
+
 ## Getting started
 
 Requires Python 3 (developed with 3.13).
@@ -122,6 +151,8 @@ Run it from any location. All paths are resolved relative to the project folder.
 
 ```
 main.py                      # runs the full pipeline
+predict.py                   # classify new patients with every model (command line)
+app.py                       # the same, as a local web interface
 requirements.txt
 data/
   raw/                       # original dataset
@@ -143,6 +174,9 @@ src/
   algorithms/                # kmeans, agglomerative, gmm, birch, dbscan
   evaluation/
     clustering_accuracy.py   # accuracy, purity, majority baseline
+  ui/                        # web interface (Flask app + page template)
+  prediction/
+    predict_patient.py       # new-patient prediction, confidence, explanations
   explainability/
     explain_clusters.py      # surrogate model, SHAP, cluster profiles, rules
   visualization/             # cluster, PCA (2D/3D) and accuracy figures
